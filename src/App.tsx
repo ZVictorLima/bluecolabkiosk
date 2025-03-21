@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback  } from 'react';
 import Container from '@mui/material/Container';
 import ScrollingCarousel from './components/ScrollingCarousel';
 import Standby from './components/Standby';
@@ -7,72 +7,53 @@ import { Box } from '@mui/material';
 import background from './assets/background.mp4';
 import logo from './assets/icons/Blue-CoLab-500-blue.png';
 
-
-// Global Timer for stand-by screen. This will calculate 5 minues before the screen goes to standby
-
-
 export default function App() {
   const [isStandby, setIsStandby] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
-  const [lastActivity, setLastActivity] = useState(Date.now());
-  const [standbyTime, setStandbyTime] = useState(300000); //  300000= 5 minutes 5000 = 5 seconds (for testing)
+  const [lastActivity, setLastActivity] = useState(Date.now()); // Global Timer for stand-by screen. This will calculate 5 minues before the screen goes to standby
+  const [standbyTime, setStandbyTime] = useState(10000); //  300000= 5 minutes 5000 = 5 seconds (for testing)
 
   // Reset timer on any user interaction
-  const resetInactivity = () => {
-    setLastActivity(Date.now());
+  const resetInactivity = useCallback(() => {
+    setLastActivity(Date.now()); // ✅ Properly update state
     if (isStandby) {
-      setIsStandby(false); // If in standby, exit standby on interaction
+      setIsStandby(false); // Exit standby if active
     }
-  };
-
-
+  }, [isStandby]);
   // Check for inactivity every second
   useEffect(() => {
     const checkInactivity = setInterval(() => {
       if (Date.now() - lastActivity >= standbyTime) {
-        setIsStandby(true); // Switch back to Standby mode
+        setIsStandby(true);
         console.log('Standby mode activated');
       }
     }, 1000); // Check every second
-    
-    return () => clearInterval(checkInactivity);
-  }, [lastActivity, standbyTime]);
 
-  // Listen for user intatcion
+    return () => clearInterval(checkInactivity); // ✅ Cleanup properly
+  }, [lastActivity, standbyTime]); // ✅ Only runs when necessary
+
+  // ✅ 3. Ensure event listeners don't keep re-attaching
   useEffect(() => {
-    const defaultEvents = [
-      "mousedown",
-      "touchstart",
-      "keydown",
-      "wheel",
-      "resize",
-    ];
-    
-    // Add event listeners to reset inactivity timer
-    defaultEvents.forEach((event) => {
-      window.addEventListener(event, resetInactivity);
-    });
+    const defaultEvents = ["keydown", "touchstart"];
+
+    defaultEvents.forEach(event => window.addEventListener(event, resetInactivity));
 
     return () => {
-      defaultEvents.forEach((event) => {
-        window.removeEventListener(event, resetInactivity);
-      });
-    }
+      defaultEvents.forEach(event => window.removeEventListener(event, resetInactivity));
+    };
+  }, [resetInactivity]); // ✅ Wrapped in useCallback, prevents excess updates
 
-  }, [resetInactivity]);
-
-
+  // ✅ 4. Start function to exit standby
   const handleStart = () => {
-    setFadeOut(true); // Start fade-out animation
+    if (!isStandby) return; // Prevent accidental double triggers
+
+    setFadeOut(true); // Start fade animation
     setTimeout(() => {
-      setIsStandby(false); // Switch to carousel after fade-out
-      resetInactivity(); // Ensure timer resets
-    }, 500); // 0.5 second transition
+      setIsStandby(false);
+      resetInactivity();
+    }, 500); // Smooth 0.5s transition
   };
-
-   
-
-
+  
   return (
     <div className="relative w-full h-screen">
       {/* Background Video (remains constant) */}
